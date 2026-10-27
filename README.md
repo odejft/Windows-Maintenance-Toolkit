@@ -1,2 +1,2 @@
 # Windows-Maintenance-Toolkit
-Script de PowerShell para automatizar tareas de mantenimiento preventivo en equipos Windows.
+PowerShell toolkit for automating preventive maintenance, diagnostics, Windows Update, Dell Command Update and system optimization on Windows devices.
