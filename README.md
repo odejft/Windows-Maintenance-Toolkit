@@ -138,6 +138,24 @@ Las siguientes capturas documentan ejemplos de ejecución. La salida puede varia
 
 ![Ejemplo de ejecución del mantenimiento, captura 5](https://github.com/user-attachments/assets/87475fe7-addb-43f0-b76c-f46fa943b50f)
 
+### Prueba de actualización de Windows 11: 24H2 → 25H2
+
+Estas tres capturas corresponden a la ejecución del arreglo probado por el responsable del proyecto, antes de los ajustes adicionales descritos arriba. Documentan la detección, la oferta del upgrade y el resultado de instalación.
+
+**1. Detección de la versión de origen: 24H2.** La consola también muestra la preparación de los servicios de Windows Update.
+
+![Prueba real: detección de Windows 11 24H2 y preparación de servicios](https://github.com/user-attachments/assets/4bad5357-5e36-4b87-abcb-7b6672bb8465)
+
+**2. Actualización de versión ofrecida: Windows 11, version 25H2.** El filtro de categoría `Upgrades` encontró el cambio de versión disponible para ese equipo.
+
+![Prueba real: Windows Update ofrece la actualización a Windows 11 25H2](https://github.com/user-attachments/assets/b6a4a8a7-32e4-4610-99ba-eff4b671fe96)
+
+**3. Instalación reportada y reinicio requerido.** Se observan las etapas `Accepted`, `Downloaded` e `Installed`, junto con el aviso de reinicio manual.
+
+![Prueba real: actualización aceptada, descargada e instalada; reinicio requerido](https://github.com/user-attachments/assets/8759b4db-cbd8-42da-9d8b-2cfa67a91536)
+
+**Confirmación posterior al reinicio:** el responsable verificó que el equipo quedó en **25H2**. Esta confirmación fue reportada por el responsable; las capturas anteriores muestran la ejecución previa al reinicio y no incluyen una captura de `winver` posterior.
+
 ## Contribuciones
 
 Las sugerencias, correcciones y mejoras son bienvenidas.
