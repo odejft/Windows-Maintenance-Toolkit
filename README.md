@@ -11,3 +11,7 @@ Estandarización del proceso de mantenimiento.
 Integración de múltiples tareas en una sola ejecución.
 Mejora en la consistencia de los resultados.
 En la mayoría de los casos el tiempo total pasó de aproximadamente 2-3 horas a menos de una hora.
+
+Importante
+Ejecute siempre el script como Administrador.
+Se recomienda revisar las actualizaciones detectadas antes de utilizarlas en entornos productivos.
