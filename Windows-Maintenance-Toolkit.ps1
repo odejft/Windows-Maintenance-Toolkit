@@ -1,6 +1,6 @@
 # ==================================================================================
 # MANTENIMIENTO WINDOWS + DELL UPDATE + WINDOWS UPDATE
-# Versión estable
+# Revision: actualizaciones habituales y upgrade de Windows 11
 # ==================================================================================
  
 Clear-Host
@@ -169,43 +169,106 @@ else
 }
  
 # -----------------------------------------------------------------------------
-# WINDOWS UPDATE
+# WINDOWS UPDATE: PARCHES HABITUALES Y ACTUALIZACIONES DE VERSION
 # -----------------------------------------------------------------------------
- 
+
 Write-Host ""
 Write-Host "Verificando Windows Update..." -ForegroundColor Cyan
- 
-if (Get-Module -ListAvailable -Name PSWindowsUpdate)
-{
+
+$EstadoParches = "No ejecutado"
+$EstadoVersion = "No ejecutado"
+$VersionWindows = "No disponible"
+
+try {
+    $VersionWindows = (Get-ItemProperty `
+        -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" `
+        -ErrorAction Stop).DisplayVersion
+    Write-Host "Version detectada al inicio: $VersionWindows"
+
+    # No modificar directivas ni desbloquear servicios deshabilitados por administracion.
+    foreach ($ServiceName in @("wuauserv", "bits")) {
+        $Service = Get-Service -Name $ServiceName -ErrorAction Stop
+        if ($Service.Status -ne "Running") {
+            Start-Service -Name $ServiceName -ErrorAction Stop
+        }
+    }
+
+    if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+        Write-Host "Instalando PSWindowsUpdate desde PowerShell Gallery..." -ForegroundColor Yellow
+        Install-PackageProvider -Name NuGet -Force -ErrorAction Stop | Out-Null
+        Install-Module -Name PSWindowsUpdate -Repository PSGallery `
+            -Scope CurrentUser -Force -ErrorAction Stop
+    }
+    Import-Module PSWindowsUpdate -ErrorAction Stop
+
+    # Mantener los parches habituales aunque no exista un cambio de version.
     try {
- 
-        Import-Module PSWindowsUpdate
- 
-        Write-Host "Buscando actualizaciones..." -ForegroundColor Yellow
- 
-        Get-WindowsUpdate
- 
-        Write-Host "Instalando actualizaciones..." -ForegroundColor Yellow
- 
-        Install-WindowsUpdate `
-            -AcceptAll `
-            -IgnoreReboot `
-            -ErrorAction SilentlyContinue
- 
+        Write-Host "Buscando parches y otras actualizaciones (sin Upgrades)..." -ForegroundColor Yellow
+        $Updates = @(Get-WindowsUpdate -MicrosoftUpdate -NotCategory "Upgrades" -ErrorAction Stop)
+        if ($Updates.Count -gt 0) {
+            $Updates | Select-Object Title | Format-Table -AutoSize
+            $PatchResults = @(Install-WindowsUpdate -MicrosoftUpdate -NotCategory "Upgrades" `
+                -AcceptAll -IgnoreReboot -ErrorAction Stop)
+            $PatchResults | Select-Object Result, KB, Title | Format-Table -AutoSize
+            $EstadoParches = "Operacion ejecutada; revisar resultados"
+        }
+        else {
+            $EstadoParches = "Sin parches ofrecidos en esta consulta"
+        }
     }
     catch {
-        Write-Host "Error al ejecutar Windows Update." -ForegroundColor Yellow
+        $EstadoParches = "Error; revisar salida"
+        Write-Warning "Error al procesar parches: $($_.Exception.Message)"
+    }
+
+    # Solo buscar cambios de version de Windows 11 en un sistema cliente compatible.
+    # La version ofrecida la determina Windows Update, no una cadena fija como 26H2.
+    if ($SO.ProductType -eq 1 -and [int]$SO.BuildNumber -ge 22000) {
+        try {
+            Write-Host "Buscando actualizaciones de version (Upgrades)..." -ForegroundColor Yellow
+            $FeatureUpdates = @(Get-WindowsUpdate -MicrosoftUpdate -Category "Upgrades" `
+                -Title "Windows 11" -ErrorAction Stop)
+
+            if ($FeatureUpdates.Count -gt 0) {
+                $FeatureUpdates | Select-Object Title | Format-Table -AutoSize
+                Write-Host "Instalando actualizacion de version ofrecida por Microsoft..." -ForegroundColor Yellow
+                $FeatureResults = @(Install-WindowsUpdate -MicrosoftUpdate -Category "Upgrades" `
+                    -Title "Windows 11" -AcceptAll -IgnoreReboot -ErrorAction Stop)
+                $FeatureResults | Select-Object Result, KB, Title | Format-Table -AutoSize
+
+                $InstalledFeatures = @($FeatureResults | Where-Object { $_.Result -eq "Installed" })
+                $FailedFeatures = @($FeatureResults | Where-Object { $_.Result -match "Failed|Aborted|Error" })
+                if ($FailedFeatures.Count -gt 0) {
+                    $EstadoVersion = "Se reportaron errores; revisar resultados"
+                }
+                elseif ($InstalledFeatures.Count -gt 0) {
+                    $EstadoVersion = "Instalacion reportada; confirmar version tras reiniciar"
+                }
+                else {
+                    $EstadoVersion = "Sin instalacion confirmada; revisar resultados"
+                }
+            }
+            else {
+                $EstadoVersion = "Sin actualizacion de version ofrecida en esta consulta"
+                Write-Host "No se ofrecio un upgrade. Revisar directivas, compatibilidad y reinicios pendientes." -ForegroundColor Yellow
+                Write-Host "Si faltan requisitos o parches, reinicie cuando corresponda y vuelva a ejecutar el script." -ForegroundColor Yellow
+            }
+        }
+        catch {
+            $EstadoVersion = "Error; revisar salida"
+            Write-Warning "Error al procesar actualizaciones de version: $($_.Exception.Message)"
+        }
+    }
+    else {
+        $EstadoVersion = "Omitido: este bloque solo gestiona upgrades de Windows 11 cliente"
     }
 }
-else
-{
-    Write-Host ""
-    Write-Host "PSWindowsUpdate no está instalado." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Instálelo una sola vez con:" -ForegroundColor White
-    Write-Host "Install-Module PSWindowsUpdate -Force" -ForegroundColor White
+catch {
+    $EstadoParches = "Preparacion de Windows Update incompleta"
+    $EstadoVersion = "Preparacion de Windows Update incompleta"
+    Write-Warning "No fue posible preparar Windows Update: $($_.Exception.Message)"
 }
- 
+
 # -----------------------------------------------------------------------------
 # SALUD SMART AVANZADA (SI DISPONIBLE)
 # -----------------------------------------------------------------------------
@@ -240,6 +303,12 @@ Write-Host "===========================================================" -Foregr
 Write-Host "MANTENIMIENTO COMPLETADO" -ForegroundColor Green
 Write-Host "===========================================================" -ForegroundColor Green
  
+Write-Host "Version de Windows al inicio: $VersionWindows"
+Write-Host "Parches: $EstadoParches"
+Write-Host "Actualizacion de version: $EstadoVersion"
+Write-Host "Revise la salida: el fin del script no garantiza el exito de cada tarea." -ForegroundColor Yellow
+Write-Host "Despues de reiniciar, ejecute winver para confirmar la version instalada." -ForegroundColor Cyan
+
 if ($RebootRequired)
 {
     Write-Host ""
